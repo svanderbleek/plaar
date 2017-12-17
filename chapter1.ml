@@ -1,3 +1,6 @@
+open List
+open String
+
 type expression
   = Var of string
   | Const of int
@@ -27,3 +30,16 @@ let rec simplify expr =
 let ex2 = Add(Mul(Add(Mul(Const(0), Var("x")), Const(1)), Const(3)), Const(12))
 
 let re2 = simplify(ex2)
+
+let space = contains " \t\n\r"
+and punctuation = contains "(){}[],"
+and symbolic = contains "~`!@#$%^&*-+=|\\:;<>.?/"
+and numeric = contains "0123456789"
+and alphanumeric = contains "abcdefghijklmnopqrstuvwxyz_'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+let rec lexwhile prop inp =
+  match inp with
+    c::cs when prop c ->
+      let tok, rest = lexwhile prop cs
+      in c^tok, rest
+  | _ -> "", inp
