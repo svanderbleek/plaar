@@ -1,3 +1,5 @@
+#use "util.ml"
+
 open List
 open String
 open Char
@@ -6,7 +8,7 @@ type expression
   = Var of string
   | Const of int
   | Add of expression * expression
-  | Mul of expression * expression 
+  | Mul of expression * expression
 let ex1 = Add(Mul(Const 2, Var "x"), Var "")
 
 let simplify1 expr =
@@ -30,75 +32,37 @@ let rec simplify expr =
 let ex2 = Add(Mul(Add(Mul(Const(0), Var("x")), Const(1)), Const(3)), Const(12))
 let rs2 = simplify(ex2)
 
-let space = contains " \t\n\r"
-and punctuation = contains "(){}[],"
-and symbolic = contains "~`!@#$%^&*-+=|\\:;<>.?/"
-and numeric = contains "0123456789"
-and alphanumeric = contains "abcdefghijklmnopqrstuvwxyz_'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-let rec explode string =
-  if length string == 0 then []
-  else make 1 string.[0]::explode (sub string 1 (length string - 1))
-
 let rec explodeC string =
   if length string == 0 then []
   else string.[0]::explodeC (sub string 1 (length string - 1))
-
-let rec lexwhile prop inp =
-  match inp with
-    c::cs when prop c.[0] ->
-      let tok, rest = lexwhile prop cs
-      in c ^ tok, rest
-  | _ -> "", inp
-
-let mapfst f (fst, snd) =
-  f fst, snd
-
-let lexprop char chars =
-  let prop =
-    if alphanumeric(char.[0]) then alphanumeric
-    else if symbolic(char.[0]) then symbolic
-    else fun c -> false
-  in mapfst ((^) char) (lexwhile prop chars)
-
-let rec lex inp =
-  match snd(lexwhile space inp) with
-    [] -> []
-  | c::cs ->
-      let tok, rest = lexprop c cs
-      in tok::lex rest
 
 let ex3 = "2 * ((var_1 + x') + 11)"
 let rs3 = lex (explode ex3)
 let ex4 = "if (*p1-- == *p2++) then f() else g()"
 let rs3 = lex (explode ex4)
 
-let rec parse_expression i =
-  match parse_product i with
-    e1, "+"::i1 ->
-      let e2, i2 = parse_expression i1
-      in Add(e1, e2), i2
-  | e1, i1 -> e1, i1
-and parse_product i =
-  match parse_atom i with
-    e1, "*"::i1 ->
-      let e2, i2 = parse_expression i1
-      in Mul(e1, e2), i2
-  | e1, i1 -> e1, i1
-and parse_atom i =
-  match lex i with
+let rec parse_expression inp =
+  match parse_product inp with
+    exp1, "+"::rest ->
+      let exp2, rest' = parse_expression rest
+      in Add(exp1, exp2), rest'
+  | exp1, rest -> exp1, rest
+and parse_product inp =
+  match parse_atom inp with
+    exp1, "*"::rest ->
+      let exp2, rest' = parse_expression rest
+      in Mul(exp1, exp2), rest'
+  | exp1, rest -> exp1, rest
+and parse_atom inp =
+  match lex inp with
     [] -> failwith "Expected an expression at end of input"
-  | "("::i1 ->
-      (match parse_expression i1 with
-        e2, ")"::i2 -> e2, i2
+  | "("::rest ->
+      (match parse_expression rest with
+        exp, ")"::rest' -> exp, rest'
       | _ -> failwith "Expected closing parenthesis")
-  | tok::i1 ->
-      if for_all numeric (explodeC tok) then Const(int_of_string tok), i1
-      else Var(tok), i1
-
-let make_parser parser i =
-  let e, rest = parser (lex(explode i))
-  in if rest = [] then e else failwith "Unparsed input"
+  | tok::rest ->
+      if for_all numeric (explodeC tok) then Const(int_of_string tok), rest
+      else Var(tok), rest
 
 let default_parser = make_parser parse_expression
 
