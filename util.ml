@@ -57,3 +57,8 @@ let parse_bracketed parse close inp =
   let ast, rest = parse inp in
   if nextin rest close then ast, List.tl rest
   else failwith "Close expected"
+
+let bracket p n f x y =
+  (if p then Format.print_string "(" else ());
+  Format.open_box n; f x y; Format.close_box();
+  (if p then print_string ")" else ())

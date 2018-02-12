@@ -54,6 +54,14 @@ let parse_propvar vs inp =
     p::rest when p <> "(" -> Atom(P(p)), rest
   | _ -> failwith "parse_propvar"
 
+let parse_simpl =
+  let dummy = fun a _ -> (True, a) in
+  make_parser (parse_formula (dummy, dummy) [])
+
+let psd =
+  make_parser
+    (parse_formula ((fun _ _ -> failwith ""), parse_propvar) [])
+
 let mk_and p q = And(p, q) and mk_or p q = Or(p, q)
 and mk_imp p q = Imp(p, q) and mk_iff p q = Iff(p, q)
 and mk_forall x p = Forall(x, p) and mk_exists x p = Exists(x, p)
@@ -109,3 +117,42 @@ let rec overatoms f fm b =
   | And(p, q) | Or(p, q) | Imp(p, q) | Iff(p, q) -> overatoms f p (overatoms f q b)
   | Forall(x, p)  | Exists(x, p) -> overatoms f p b
   | _ -> b
+
+let rec strip_quant fm =
+  match fm with
+      Forall(x, (Forall(y, p) as yp)) | Exists(x, (Exists(y, p) as yp)) ->
+        let xs, q = strip_quant yp in x::xs, q
+    | Forall(x, p) | Exists(x, p) -> [x], p
+    | _ -> [], fm
+
+let print_formula pfn =
+  let rec print_formula pr fm =
+    match fm with
+      False -> print_string "false"
+    | True -> print_string "true"
+    | Atom(pargs) -> pfn pr pargs
+    | Not(p) -> bracket (pr > 10) 1 (print_prefix 10) "~" p
+    | And(p, q) -> bracket (pr > 8) 0 (print_infix 8 "/\\") p q
+    | Or(p, q) -> bracket (pr > 6) 0 (print_infix 6 "\\/") p q
+    | Imp(p, q) -> bracket (pr > 4) 0 (print_infix 4 "==>") p q
+    | Iff(p, q) -> bracket (pr > 2) 0 (print_infix 2 "<=>") p q
+    | Forall(x, p) -> bracket (pr > 0) 2 print_qnt "forall" (strip_quant fm)
+    | Exists(x, p) -> bracket (pr > 0) 2 print_qnt "exists" (strip_quant fm)
+  and print_qnt qname (bvs, bod) =
+    print_string qname;
+    List.iter (fun v -> print_string " "; print_string v) bvs;
+    print_string "."; Format.print_space(); Format.open_box 0;
+    print_formula 0 bod;
+    Format.close_box();
+  and print_prefix newpr sym p =
+    print_string sym; print_formula (newpr + 1) p
+  and print_infix newpr sym p q =
+    print_formula (newpr + 1) p;
+    print_string(" " ^ sym ^ " ");
+    print_formula newpr q
+  in print_formula 0
+
+let print_propvar prec p = print_string(pname p)
+
+let prd = print_formula print_propvar
+
